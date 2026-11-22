@@ -66,7 +66,7 @@ header p{margin:0;font-size:18px;line-height:1.5;max-width:560px;color:#FFE9E6}
 main{padding:32px 24px 80px}
 main h2{margin:0 0 20px;font-size:32px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:28px 22px}
-.card{padding:0;border:0;background:transparent;cursor:pointer;perspective:1000px;aspect-ratio:5/7;width:100%;border-radius:16px;text-align:left;color:#1A1A1A}
+.card{padding:0;border:0;background:transparent;cursor:pointer;perspective:1000px;aspect-ratio:5/7;width:100%;border-radius:16px;text-align:left;color:#1A1A1A;container-type:inline-size}
 .inner{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.3,1.4,.5,1),translate .15s ease}
 .card:hover .inner{translate:0 -4px}
 .card.on .inner{transform:rotateY(180deg)}
@@ -80,19 +80,21 @@ main h2{margin:0 0 20px;font-size:32px}
 .idx{position:absolute;width:18%;display:flex;flex-direction:column;align-items:center;gap:2px}
 .idx.tl{left:4%;top:4%}
 .idx.br{right:4%;bottom:4%;transform:rotate(180deg)}
-.idx b{font-family:'Bowlby One',Inter,sans-serif;font-weight:400;font-size:20px;line-height:1}
+.idx b{font-family:'Bowlby One',Inter,sans-serif;font-weight:400;font-size:9cqw;line-height:1}
+.idx svg{width:7.3cqw;height:7.3cqw}
 .name{position:absolute;left:7%;right:24%;bottom:4.5%;height:13%;display:flex;align-items:flex-end}
-.name span{line-height:1.05}
-.back .in{padding:14px 14px 12px;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
+.name span{line-height:1.05;font-size:calc(var(--ns) * .455cqw)}
+.back .in{padding:6.4cqw 6.4cqw 5.5cqw;display:flex;flex-direction:column;justify-content:space-between;gap:10px}
 .back .head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
-.back .head span:first-child{font-size:13px;line-height:1.1}
-.stamp{flex:none;background:#1A1A1A;color:#FFC21A;font-size:10px;font-weight:800;letter-spacing:.1em;padding:3px 6px;border-radius:4px;transform:rotate(6deg)}
-.back .quip{margin:0;font-size:18px;line-height:1.22;font-weight:700}
-.back .foot{display:flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4A4A4A}
+.back .head span:first-child{font-size:5.9cqw;line-height:1.1}
+.stamp{flex:none;background:#1A1A1A;color:#FFC21A;font-size:4.5cqw;font-weight:800;letter-spacing:.1em;padding:1.4cqw 2.7cqw;border-radius:4px;transform:rotate(6deg)}
+.back .quip{margin:0;font-size:8.2cqw;line-height:1.22;font-weight:700}
+.back .foot{display:flex;align-items:center;gap:2.7cqw;font-size:4.5cqw;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:#4A4A4A}
 
 footer{padding:32px 24px 48px;border-top:2px solid #1A1A1A}
 footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:#555}
-@media (max-width:700px){.score{position:relative}.bar{padding:18px}.actions{width:100%}}
+.back .foot svg{width:6.4cqw;height:6.4cqw}
+@media (max-width:700px){.score{position:relative}.bar{padding:18px}.actions{width:100%}main{padding:24px 14px 60px}main h2{font-size:26px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}.face{border-radius:12px;padding:4px}.in{border-width:2px;border-radius:9px}}
 @media (prefers-reduced-motion:reduce){.inner,.fill{transition:none}}
 </style>
 </head>
@@ -202,7 +204,7 @@ function cardHTML(c,i){
           '<div class="food"><svg aria-hidden="true" viewBox="0 0 200 200"><g stroke="#1A1A1A" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">'+fillArt(c)+'</g></svg></div>'+
         '</div>'+
         '<div class="idx tl">'+idx+'</div><div class="idx br">'+idx+'</div>'+
-        '<div class="name"><span class="bowl" style="font-size:'+c.ns+'px">'+esc(c.n)+'</span></div>'+
+        '<div class="name"><span class="bowl" style="--ns:'+c.ns+'">'+esc(c.n)+'</span></div>'+
       '</div></div>'+
       '<div class="face back" style="'+frame+'"><div class="in">'+
         '<div class="head"><span class="bowl" style="color:'+c.i+'">'+esc(c.n)+'</span><span class="stamp">TRIED</span></div>'+
