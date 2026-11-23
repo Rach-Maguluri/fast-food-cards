@@ -113,6 +113,14 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;
 .prow{display:flex;flex-wrap:wrap;gap:8px}
 .prow .btn{flex:1 1 120px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border-color:#1A1A1A}
 .prow .btn[hidden]{display:none}
+.stack{padding:16px 24px 8px}
+.stackbox{background:#fff;border:2px solid #1A1A1A;border-radius:16px;padding:18px 20px;display:flex;flex-direction:column;gap:10px}
+.stackbox .stitle{margin:0;font-size:22px}
+.slist{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
+.slist li{font-size:16px;line-height:1.45;padding-left:22px;position:relative}
+.slist li::before{content:"";position:absolute;left:4px;top:.42em;width:9px;height:9px;border-radius:50%;background:#F0412F;border:2px solid #1A1A1A}
+.slist b{font-weight:800}
+.stackbox .snote{margin:0;font-size:13px;color:#555}
 @media (max-width:700px){.score{position:relative}.bar{padding:18px}.actions{width:100%}main{padding:24px 14px 60px}main h2{font-size:26px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}.face{border-radius:12px;padding:4px}.in{border-width:2px;border-radius:9px}}
 @media (prefers-reduced-motion:reduce){.inner,.fill{transition:none}}
 </style>
@@ -165,6 +173,16 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;
   <div class="wrap">
     <div class="tile"><span>Been there</span><b class="display" id="been" style="color:#1E7F47">0</b></div>
     <div class="tile"><span>Still out there</span><b class="display" id="left" style="color:#C8261A">50</b></div>
+  </div>
+</section>
+
+<section class="stack" id="stack" aria-label="How you stack up" hidden>
+  <div class="wrap">
+    <div class="stackbox">
+      <p class="display stitle">How you stack up</p>
+      <ul class="slist" id="slist"></ul>
+      <p class="snote" id="snote"></p>
+    </div>
   </div>
 </section>
 
@@ -281,6 +299,7 @@ function update(){
   document.getElementById('verdict').textContent=verdictFor(n);
   document.getElementById('fill').style.width=Math.round(n/total*100)+'%';
   const pg=document.getElementById('progress');pg.setAttribute('aria-valuemax',total);pg.setAttribute('aria-valuenow',n);
+  if(typeof renderStack==='function'&&STATS)renderStack();
   cardEls.forEach((el,i)=>{const on=!!tried[i];el.classList.toggle('on',on);el.setAttribute('aria-pressed',on);el.setAttribute('aria-label',CHAINS[i].n+(on?', tried':', not tried yet'));});
 }
 grid.addEventListener('click',e=>{
@@ -326,7 +345,7 @@ function syncBoard(){
   const r=lsGet(REGION);
   const region=(r&&r!=='skip')?r:null;
   if(!picks.length&&!region&&!lsGet(BOARD))return;
-  try{sb('rpc/upsert_board',{method:'POST',keepalive:true,body:JSON.stringify({p_id:boardId(),p_region:region,p_picks:picks})}).catch(()=>{});}catch(e){}
+  try{sb('rpc/upsert_board',{method:'POST',keepalive:true,body:JSON.stringify({p_id:boardId(),p_region:region,p_picks:picks})}).then(()=>{if(typeof loadStats==='function')loadStats();}).catch(()=>{});}catch(e){}
 }
 window.addEventListener('pagehide',()=>{if(syncTimer){clearTimeout(syncTimer);syncBoard();}});
 const ask=document.getElementById('ask');
@@ -489,6 +508,41 @@ povSave.addEventListener('click',()=>logShare('poster_shared'));
 povCopy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(POSTER_URL);povCopy.textContent='Copied';}catch(e){povCopy.textContent=POSTER_URL;}});
 // someone arrived from a shared poster's link: count it once per browser, then tidy the address bar
 (function(){if(REF!=='poster')return;if(!lsGet('ff-ref-v1')){lsSet('ff-ref-v1','1');logShare('poster_visit');}try{const u=new URL(location.href);u.searchParams.delete('ref');history.replaceState(null,'',u.pathname+u.search+u.hash);}catch(e){}})();
+
+// ---- How you stack up (aggregate totals only, from board_stats) ----
+const MIN_PLAYERS = 5;
+var STATS = null;
+async function loadStats(){
+  if(!SUPABASE_URL||!SUPABASE_KEY)return;
+  try{const r=await sb('rpc/board_stats',{method:'POST',body:JSON.stringify({p_id:lsGet(BOARD)})});if(!r.ok)return;STATS=await r.json();renderStack();}catch(e){}
+}
+function pctText(p){return p<1&&p>0?'under 1%':Math.round(p)+'%';}
+function renderStack(){
+  const box=document.getElementById('stack'), list=document.getElementById('slist'), note=document.getElementById('snote');
+  const n=count();
+  if(!STATS||n===0){box.hidden=true;return;}
+  const mine=Number(STATS.mine)||0;
+  const others=Number(STATS.players)-(mine>0?1:0);
+  box.hidden=false;
+  if(others<MIN_PLAYERS){list.innerHTML='';note.textContent='Comparisons show up once a few more people have played. Check back soon.';return;}
+  note.textContent='Based on '+others.toLocaleString()+' other players. All anonymous.';
+  const dist=STATS.dist||{};let less=0;
+  for(const k in dist){if(Number(k)<n)less+=Number(dist[k]);}
+  if(mine>0&&mine<n)less-=1;
+  const rank=Math.max(0,Math.min(100,less/others*100));
+  const avg=(Number(STATS.sum)-mine)/others;
+  const players=Number(STATS.players), ch=STATS.chains||{};
+  let top=null;for(const k in ch){if(!top||ch[k]>ch[top])top=k;}
+  let rare=null;CHAINS.forEach((c,i)=>{if(!tried[i])return;const v=Number(ch[c.n]||0);if(rare===null||v<rare.v)rare={n:c.n,v};});
+  const items=[];
+  items.push(rank>=1?'You’ve been to more chains than <b>'+Math.round(rank)+'%</b> of players.':'Everyone else has been to at least as many. <b>Respect.</b>');
+  items.push('The average player has been to <b>'+(Math.round(avg*10)/10)+'</b>.');
+  if(top)items.push('Most-flipped card: <b>'+esc(top)+'</b> ('+pctText(ch[top]/players*100)+' of players).');
+  if(rare){const p=rare.v/players*100;items.push('Your rarest find: <b>'+esc(rare.n)+'</b>. '+(rare.v===0?'Nobody else has been yet.':p<=50?'Only '+pctText(p)+' of players have been.':pctText(p)+' of players have been.'));}
+  list.innerHTML=items.map(t=>'<li>'+t+'</li>').join('');
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+loadStats();
 
 update();
 loadCount();
