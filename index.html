@@ -102,6 +102,17 @@ main h2{margin:0 0 20px;font-size:32px}
 footer{padding:32px 24px 48px;border-top:2px solid #1A1A1A}
 footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;font-size:14px;color:#555}
 .back .foot svg{width:6.4cqw;height:6.4cqw}
+.panel .row[hidden]{display:none}
+.pov{position:fixed;inset:0;z-index:50;background:rgba(26,26,26,.62);display:flex;align-items:center;justify-content:center;padding:16px}
+.pov[hidden]{display:none}
+.pbox{background:#FFF9EE;border:3px solid #1A1A1A;border-radius:20px;box-shadow:0 8px 0 #1A1A1A;width:100%;max-width:400px;max-height:100%;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:12px}
+.pbox .ptop{display:flex;justify-content:space-between;align-items:center;gap:12px}
+.pbox .ptop .display{font-size:22px}
+.pbox img{display:block;width:auto;max-width:100%;max-height:58vh;margin:0 auto;border:2px solid #1A1A1A;border-radius:12px}
+.pbox .phint{margin:0;font-size:14px;line-height:1.45;color:#3A3A3A}
+.prow{display:flex;flex-wrap:wrap;gap:8px}
+.prow .btn{flex:1 1 120px;display:inline-flex;align-items:center;justify-content:center;text-decoration:none;border-color:#1A1A1A}
+.prow .btn[hidden]{display:none}
 @media (max-width:700px){.score{position:relative}.bar{padding:18px}.actions{width:100%}main{padding:24px 14px 60px}main h2{font-size:26px}.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 12px}.face{border-radius:12px;padding:4px}.in{border-width:2px;border-radius:9px}}
 @media (prefers-reduced-motion:reduce){.inner,.fill{transition:none}}
 </style>
@@ -132,7 +143,7 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;
       </div>
       <div class="actions">
         <button type="button" class="btn yellow" id="saveBtn">Save my progress</button>
-        <button type="button" class="btn white" id="shareBtn">Share with a friend</button>
+        <button type="button" class="btn white" id="shareBtn">Share my results</button>
         <button type="button" class="btn link" id="resetBtn">Start over</button>
       </div>
     </div>
@@ -188,9 +199,26 @@ footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:12px;
   </div>
 </footer>
 
+<div class="pov" id="pov" role="dialog" aria-modal="true" aria-labelledby="povTitle" hidden>
+  <div class="pbox">
+    <div class="ptop">
+      <span class="display" id="povTitle">Your poster</span>
+      <button type="button" class="close" id="povClose" aria-label="Close"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1A1A1A" stroke-width="3" stroke-linecap="round"><path d="M6 6 L18 18 M18 6 L6 18"/></svg></button>
+    </div>
+    <img id="povImg" alt="Your fast food poster: the chains you've been to, shown as cards">
+    <p class="phint">Posting it to an Instagram story? Copy the link and add it as a link sticker over the Check now button.</p>
+    <div class="prow">
+      <button type="button" class="btn yellow" id="povShare">Share</button>
+      <a class="btn white" id="povSave" download="fast-food-count.png">Save image</a>
+      <button type="button" class="btn dark" id="povCopy">Copy link</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ---- Settings ----
 const SITE_URL = 'https://rach-maguluri.github.io/fast-food-cards/';
+const REF = (()=>{try{return new URLSearchParams(location.search).get('ref');}catch(e){return null;}})();
 // Supabase publishable key: safe to ship in a public site (RLS limits it to reading the count and adding 1).
 const SUPABASE_URL = 'https://zfmqwokbhvrrdeqnsnkn.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_jB2iCqAq-3ylL5lw4AdYkw_HSmv1ZCP';
@@ -266,16 +294,10 @@ document.getElementById('resetBtn').addEventListener('click',()=>{tried={};persi
 // ---- Save + share ----
 const panel=document.getElementById('panel'), panelText=document.getElementById('panelText'), copyBtn=document.getElementById('copyBtn');
 function saveLink(){return SITE_URL+'?b='+encodeBoard(tried);}
-function shareText(){const n=count();return n===0?'How many fast food chains have you actually been to? I’m about to find out.':'I’ve been to '+n+' of '+CHAINS.length+' fast food chains. How many have you actually been to?';}
-function showPanel(title,body,label,text){document.getElementById('panelTitle').textContent=title;document.getElementById('panelBody').textContent=body;document.getElementById('panelLabel').textContent=label;panelText.value=text;copyBtn.textContent='Copy';panel.hidden=false;}
+function showPanel(title,body,label,text){document.getElementById('panelTitle').textContent=title;document.getElementById('panelBody').textContent=body;document.getElementById('panelLabel').textContent=label;panelText.value=text;copyBtn.textContent='Copy';document.querySelector('#panel .row').hidden=!text;panel.hidden=false;}
 function hidePanel(){panel.hidden=true;}
 document.getElementById('panelClose').addEventListener('click',hidePanel);
 document.getElementById('saveBtn').addEventListener('click',()=>{persist();showPanel('Saved.','Your cards are saved in this browser. To pick up on another device, or if you clear your browser, use this link. Bookmark it or text it to yourself.','Your saved progress link',saveLink());});
-document.getElementById('shareBtn').addEventListener('click',async()=>{
-  const text=shareText();
-  if(navigator.share){try{await navigator.share({title:document.title,text:text,url:SITE_URL});return;}catch(e){if(e&&e.name==='AbortError')return;}}
-  showPanel('Send this to a friend','Copy this and send it however you like.','Message to share',text+' '+SITE_URL);
-});
 copyBtn.addEventListener('click',async()=>{
   try{await navigator.clipboard.writeText(panelText.value);copyBtn.textContent='Copied';}
   catch(e){panelText.focus();panelText.select();}
@@ -311,6 +333,156 @@ const ask=document.getElementById('ask');
 if(!lsGet(REGION))ask.hidden=false;
 ask.addEventListener('click',e=>{const b=e.target.closest('[data-r]');if(!b)return;lsSet(REGION,b.dataset.r);ask.hidden=true;scheduleSync();});
 if(Object.keys(tried).length)scheduleSync();
+
+// ---- Share poster (drawn on a canvas so it works the same on phones and laptops) ----
+const POSTER_URL = SITE_URL + '?ref=poster';
+const PW = 1080, PH = 1920, TOP_H = 540, PAD = 56, GAP = 18, RGAP = 24;
+function posterLine(n){if(n<=3)return'Basically a home cook.';if(n<=10)return'Fries, but in moderation.';if(n<=20)return'Knows the drive-thru by heart.';if(n<=30)return'Road trips have clearly happened.';if(n<=42)return'At this point it’s research.';return'Please drink some water.';}
+function svgImg(svg){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);});}
+const SVGNS = 'xmlns="http://www.w3.org/2000/svg"';
+function rr(ctx,x,y,w,h,r){
+  const R=Array.isArray(r)?r:[r,r,r,r];
+  ctx.beginPath();
+  ctx.moveTo(x+R[0],y);ctx.lineTo(x+w-R[1],y);ctx.arcTo(x+w,y,x+w,y+R[1],R[1]);
+  ctx.lineTo(x+w,y+h-R[2]);ctx.arcTo(x+w,y+h,x+w-R[2],y+h,R[2]);
+  ctx.lineTo(x+R[3],y+h);ctx.arcTo(x,y+h,x,y+h-R[3],R[3]);
+  ctx.lineTo(x,y+R[0]);ctx.arcTo(x,y,x+R[0],y,R[0]);ctx.closePath();
+}
+// diagonal "/" stripes inside the current clip
+function stripes(ctx,x,y,w,h,period,band,color){
+  ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate(Math.PI/4);
+  const d=w+h;ctx.fillStyle=color;
+  for(let s=-d;s<d;s+=period)ctx.fillRect(s+period-band,-d,band,2*d);
+  ctx.restore();
+}
+// CSS-style text placement: top of a line box of height lh
+function baseline(ctx,top,lh){const m=ctx.measureText('Hg');const a=m.fontBoundingBoxAscent||m.actualBoundingBoxAscent,d=m.fontBoundingBoxDescent||m.actualBoundingBoxDescent;return top+(lh-(a+d))/2+a;}
+function wrap(ctx,text,maxW){const words=text.split(' ');const lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(cur&&ctx.measureText(t).width>maxW){lines.push(cur);cur=w;}else cur=t;}if(cur)lines.push(cur);return lines;}
+function posterLayout(n){
+  const W=PW-2*PAD, H=PH-TOP_H-250-80;let best=null;
+  for(let c=1;c<=10;c++){let w=Math.min((W-(c-1)*GAP)/c,300);const r=Math.ceil(n/c);const h=r*w*1.4+(r-1)*RGAP;if(h<=H&&(!best||w>=best.w))best={c,w};}
+  return best||{c:10,w:(W-9*GAP)/10};
+}
+async function cardImages(c){
+  const [burst,food,suitImg]=await Promise.all([
+    svgImg('<svg '+SVGNS+' viewBox="0 0 220 220"><polygon points="'+BURST+'" fill="'+c.b+'" stroke="#1A1A1A" stroke-width="3" stroke-linejoin="round"/></svg>'),
+    svgImg('<svg '+SVGNS+' viewBox="0 0 200 200" overflow="visible"><g stroke="#1A1A1A" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">'+fillArt(c)+'</g></svg>'),
+    svgImg('<svg '+SVGNS+' viewBox="0 0 24 24" fill="'+c.i+'">'+SUITS[c.s]+'</svg>')]);
+  return {burst,food,suitImg};
+}
+function drawCard(ctx,c,i,img,x,y,w){
+  const h=w*1.4, s=w/200;
+  ctx.fillStyle='#1A1A1A';rr(ctx,x,y+5*s,w,h,16*s);ctx.fill();
+  ctx.save();rr(ctx,x,y,w,h,16*s);ctx.clip();ctx.fillStyle=c.k1;ctx.fillRect(x,y,w,h);stripes(ctx,x,y,w,h,18*s,9*s,c.k2);ctx.restore();
+  const p=6*s, ix=x+p, iy=y+p, iw=w-2*p, ih=h-2*p, b=3*s;
+  ctx.fillStyle='#FFF4DC';rr(ctx,ix,iy,iw,ih,11*s);ctx.fill();
+  const cx=ix+b, cy=iy+b, cw=iw-2*b, ch=ih-2*b;
+  // art panel
+  const px=cx+.24*cw, py=cy+.05*ch, pw=cw*.70, ph=ch*.76;
+  ctx.save();rr(ctx,px,py,pw,ph,[6*s,22*s,8*s,18*s]);ctx.clip();
+  ctx.fillStyle=c.p;ctx.fillRect(px,py,pw,ph);
+  ctx.fillStyle='rgba(26,26,26,.16)';const step=7*s,dr=1.4*s;
+  for(let yy=py+step/2;yy<py+ph;yy+=step)for(let xx=px+step/2;xx<px+pw;xx+=step){ctx.beginPath();ctx.arc(xx,yy,dr,0,7);ctx.fill();}
+  const bw=pw*1.25;ctx.drawImage(img.burst,px+pw/2-bw/2,py+ph/2-bw/2,bw,bw);
+  const fw=pw*.82, fx=px+pw/2-fw/2, fy=py+ph/2-fw/2, o=2.5*s;
+  const off=document.createElement('canvas');off.width=Math.ceil(fw+4*o);off.height=Math.ceil(fw+4*o);
+  const oc=off.getContext('2d');oc.drawImage(img.food,2*o,2*o,fw,fw);oc.globalCompositeOperation='source-in';oc.fillStyle='#FFFFFF';oc.fillRect(0,0,off.width,off.height);
+  for(const [dx,dy] of [[o,0],[-o,0],[0,o],[0,-o]])ctx.drawImage(off,fx-2*o+dx,fy-2*o+dy);
+  ctx.drawImage(img.food,fx,fy,fw,fw);
+  ctx.restore();
+  ctx.strokeStyle='#1A1A1A';ctx.lineWidth=b;rr(ctx,ix+b/2,iy+b/2,iw-b,ih-b,11*s-b/2);ctx.stroke();
+  // corner index
+  const num=String(i+1).padStart(2,'0'), fs=.09*w, ss=.073*w, gap=2*s, bh=fs+gap+ss;
+  function idx(){ctx.fillStyle=c.i;ctx.font='400 '+fs+'px "Bowlby One"';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.fillText(num,0,baseline(ctx,-bh/2,fs));ctx.drawImage(img.suitImg,-ss/2,-bh/2+fs+gap,ss,ss);}
+  const colW=.18*cw;
+  ctx.save();ctx.translate(cx+.04*cw+colW/2,cy+.04*ch+bh/2);idx();ctx.restore();
+  ctx.save();ctx.translate(cx+cw-.04*cw-colW/2,cy+ch-.04*ch-bh/2);ctx.rotate(Math.PI);idx();ctx.restore();
+  // name
+  const nfs=c.ns*.00455*w, nlh=nfs*1.05;ctx.font='400 '+nfs+'px "Bowlby One"';ctx.fillStyle='#1A1A1A';ctx.textAlign='left';
+  const lines=wrap(ctx,c.n.toUpperCase(),cw*.69);const bottom=cy+ch-.045*ch;
+  lines.forEach((ln,k)=>{const top=bottom-(lines.length-k)*nlh;ctx.fillText(ln,cx+.07*cw,baseline(ctx,top,nlh));});
+}
+async function makePoster(){
+  await Promise.all(['400 50px "Bowlby One"','800 100px "Bricolage Grotesque"','700 40px Inter','800 40px Inter'].map(f=>document.fonts.load(f).catch(()=>{})));
+  const picks=CHAINS.map((c,i)=>[c,i]).filter(([c,i])=>tried[i]);
+  const n=picks.length;
+  const cv=document.createElement('canvas');cv.width=PW;cv.height=PH;const ctx=cv.getContext('2d');
+  ctx.fillStyle='#FFF9EE';ctx.fillRect(0,0,PW,PH);
+  // mustard band
+  ctx.fillStyle='#FFC928';ctx.fillRect(0,0,PW,TOP_H);
+  ctx.save();ctx.beginPath();ctx.rect(0,0,PW,TOP_H);ctx.clip();stripes(ctx,0,0,PW,TOP_H,44,22,'#FFD452');ctx.restore();
+  ctx.fillStyle='#1A1A1A';ctx.fillRect(0,TOP_H-4,PW,4);
+  // big number
+  ctx.textAlign='left';ctx.font='800 280px "Bricolage Grotesque"';
+  if('letterSpacing' in ctx)ctx.letterSpacing='-11px';
+  const nb=baseline(ctx,96,224), nw=ctx.measureText(String(n)).width;
+  ctx.lineJoin='round';ctx.lineWidth=6;ctx.strokeStyle='#1A1A1A';ctx.strokeText(String(n),64,nb);
+  ctx.fillStyle='#FF2A1A';ctx.fillText(String(n),64,nb);
+  if('letterSpacing' in ctx)ctx.letterSpacing='0px';
+  ctx.font='700 42px Inter';ctx.fillStyle='#1A1A1A';
+  const lx=64+nw+22, llh=46.2;
+  ctx.fillText('fast food chains',lx,baseline(ctx,320-12-2*llh,llh));ctx.fillText('and counting',lx,baseline(ctx,320-12-llh,llh));
+  ctx.font='800 74px "Bricolage Grotesque"';
+  wrap(ctx,posterLine(n),940).forEach((ln,k)=>ctx.fillText(ln,64,baseline(ctx,346+k*72.5,72.5)));
+  // cards
+  const {c:cols,w}=posterLayout(n), h=w*1.4, rows=Math.ceil(n/cols);
+  const gridH=rows*h+(rows-1)*RGAP, areaTop=TOP_H+40, areaBot=PH-64-154-40;
+  let y=areaTop+Math.max(0,(areaBot-areaTop-gridH)/2);
+  const imgs=await Promise.all(picks.map(([c])=>cardImages(c)));
+  for(let r=0;r<rows;r++){
+    const row=picks.slice(r*cols,(r+1)*cols), rw=row.length*w+(row.length-1)*GAP;let x=(PW-rw)/2;
+    row.forEach(([c,i],k)=>{drawCard(ctx,c,i,imgs[r*cols+k],x,y,w);x+=w+GAP;});
+    y+=h+RGAP;
+  }
+  // call to action bar
+  const bx=PAD, bw=PW-2*PAD, bh=154, by=PH-64-bh;
+  ctx.fillStyle='#F0412F';rr(ctx,bx,by+12,bw,bh,28);ctx.fill();
+  ctx.fillStyle='#1A1A1A';rr(ctx,bx,by,bw,bh,28);ctx.fill();
+  ctx.font='800 46px "Bricolage Grotesque"';ctx.fillStyle='#FFC928';const tlh=46.9;
+  ctx.fillText('How many have',bx+36,baseline(ctx,by+30,tlh));ctx.fillText('you been to?',bx+36,baseline(ctx,by+30+tlh,tlh));
+  ctx.font='800 38px Inter';const label='Check now →', lw=ctx.measureText(label).width;
+  const btw=lw+88, bth=90, btx=bx+bw-36-btw, bty=by+(bh-bth)/2;
+  ctx.fillStyle='#FFC928';rr(ctx,btx,bty+6,btw,bth,45);ctx.fill();
+  rr(ctx,btx,bty,btw,bth,45);ctx.fill();
+  ctx.fillStyle='#F0412F';rr(ctx,btx+4,bty+4,btw-8,bth-8,41);ctx.fill();
+  ctx.fillStyle='#1A1A1A';ctx.textAlign='center';ctx.fillText(label,btx+btw/2,baseline(ctx,bty,bth));
+  return cv;
+}
+function logShare(kind){if(!SUPABASE_URL||!SUPABASE_KEY)return;try{sb('rpc/log_share_event',{method:'POST',keepalive:true,body:JSON.stringify({p_kind:kind})}).catch(()=>{});}catch(e){}}
+const pov=document.getElementById('pov'), povImg=document.getElementById('povImg'), povShare=document.getElementById('povShare'), povSave=document.getElementById('povSave'), povCopy=document.getElementById('povCopy');
+let posterFile=null, posterUrl=null, lastFocus=null;
+function posterText(){return 'I’ve been to '+count()+' fast food chains. How many have you been to? '+POSTER_URL;}
+async function openPoster(){
+  if(count()===0){showPanel('Nothing to share yet','Tap the cards for the places you’ve been to, then try again.','','');return;}
+  hidePanel();lastFocus=document.activeElement;
+  const sb2=document.getElementById('shareBtn');sb2.disabled=true;sb2.textContent='Making your poster…';
+  try{
+    const cv=await makePoster();
+    const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+    if(posterUrl)URL.revokeObjectURL(posterUrl);
+    posterUrl=URL.createObjectURL(blob);posterFile=new File([blob],'fast-food-count.png',{type:'image/png'});
+    povImg.src=posterUrl;povSave.href=posterUrl;
+    povShare.hidden=!(navigator.canShare&&navigator.canShare({files:[posterFile]}));
+    povCopy.textContent='Copy link';
+    pov.hidden=false;document.body.style.overflow='hidden';
+    document.getElementById('povClose').focus();
+    logShare('poster_made');
+  }catch(e){showPanel('That didn’t work','Something went wrong making the poster. Try again in a second.','','');}
+  finally{sb2.disabled=false;sb2.textContent='Share my results';}
+}
+function closePoster(){pov.hidden=true;document.body.style.overflow='';if(lastFocus&&lastFocus.focus)lastFocus.focus();}
+document.getElementById('shareBtn').addEventListener('click',openPoster);
+document.getElementById('povClose').addEventListener('click',closePoster);
+pov.addEventListener('click',e=>{if(e.target===pov)closePoster();});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!pov.hidden)closePoster();});
+povShare.addEventListener('click',async()=>{
+  try{await navigator.share({files:[posterFile],text:posterText()});logShare('poster_shared');}
+  catch(e){if(!(e&&e.name==='AbortError'))povShare.hidden=true;}
+});
+povSave.addEventListener('click',()=>logShare('poster_shared'));
+povCopy.addEventListener('click',async()=>{try{await navigator.clipboard.writeText(POSTER_URL);povCopy.textContent='Copied';}catch(e){povCopy.textContent=POSTER_URL;}});
+// someone arrived from a shared poster's link: count it once per browser, then tidy the address bar
+(function(){if(REF!=='poster')return;if(!lsGet('ff-ref-v1')){lsSet('ff-ref-v1','1');logShare('poster_visit');}try{const u=new URL(location.href);u.searchParams.delete('ref');history.replaceState(null,'',u.pathname+u.search+u.hash);}catch(e){}})();
 
 update();
 loadCount();
