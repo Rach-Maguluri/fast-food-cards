@@ -336,7 +336,7 @@ if(Object.keys(tried).length)scheduleSync();
 
 // ---- Share poster (drawn on a canvas so it works the same on phones and laptops) ----
 const POSTER_URL = SITE_URL + '?ref=poster';
-const PW = 1080, PH = 1920, TOP_H = 540, PAD = 56, GAP = 18, RGAP = 24;
+const PW = 1080, PH = 1920, PAD = 56, GPAD = 32, GAP = 14, RGAP = 18, BAR_H = 140, BAR_B = 56;
 function posterLine(n){if(n<=3)return'Basically a home cook.';if(n<=10)return'Fries, but in moderation.';if(n<=20)return'Knows the drive-thru by heart.';if(n<=30)return'Road trips have clearly happened.';if(n<=42)return'At this point it’s research.';return'Please drink some water.';}
 function svgImg(svg){return new Promise((res,rej)=>{const im=new Image();im.onload=()=>res(im);im.onerror=rej;im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);});}
 const SVGNS = 'xmlns="http://www.w3.org/2000/svg"';
@@ -358,10 +358,10 @@ function stripes(ctx,x,y,w,h,period,band,color){
 // CSS-style text placement: top of a line box of height lh
 function baseline(ctx,top,lh){const m=ctx.measureText('Hg');const a=m.fontBoundingBoxAscent||m.actualBoundingBoxAscent,d=m.fontBoundingBoxDescent||m.actualBoundingBoxDescent;return top+(lh-(a+d))/2+a;}
 function wrap(ctx,text,maxW){const words=text.split(' ');const lines=[];let cur='';for(const w of words){const t=cur?cur+' '+w:w;if(cur&&ctx.measureText(t).width>maxW){lines.push(cur);cur=w;}else cur=t;}if(cur)lines.push(cur);return lines;}
-function posterLayout(n){
-  const W=PW-2*PAD, H=PH-TOP_H-250-80;let best=null;
-  for(let c=1;c<=10;c++){let w=Math.min((W-(c-1)*GAP)/c,300);const r=Math.ceil(n/c);const h=r*w*1.4+(r-1)*RGAP;if(h<=H&&(!best||w>=best.w))best={c,w};}
-  return best||{c:10,w:(W-9*GAP)/10};
+function posterLayout(n,H){
+  const W=PW-2*GPAD;let best=null;
+  for(let c=1;c<=Math.min(n,12);c++){const r=Math.ceil(n/c);const w=Math.min((W-(c-1)*GAP)/c,(H-(r-1)*RGAP)/(r*1.4),560);if(!best||w>best.w+0.5)best={c,w};}
+  return best;
 }
 async function cardImages(c){
   const [burst,food,suitImg]=await Promise.all([
@@ -409,6 +409,9 @@ async function makePoster(){
   const cv=document.createElement('canvas');cv.width=PW;cv.height=PH;const ctx=cv.getContext('2d');
   ctx.fillStyle='#FFF9EE';ctx.fillRect(0,0,PW,PH);
   // mustard band
+  ctx.font='800 74px "Bricolage Grotesque"';
+  const lineRows=wrap(ctx,posterLine(n),940);
+  const TOP_H=Math.round(346+lineRows.length*72.5+52);
   ctx.fillStyle='#FFC928';ctx.fillRect(0,0,PW,TOP_H);
   ctx.save();ctx.beginPath();ctx.rect(0,0,PW,TOP_H);ctx.clip();stripes(ctx,0,0,PW,TOP_H,44,22,'#FFD452');ctx.restore();
   ctx.fillStyle='#1A1A1A';ctx.fillRect(0,TOP_H-4,PW,4);
@@ -423,23 +426,26 @@ async function makePoster(){
   const lx=64+nw+22, llh=46.2;
   ctx.fillText('fast food chains',lx,baseline(ctx,320-12-2*llh,llh));ctx.fillText('and counting',lx,baseline(ctx,320-12-llh,llh));
   ctx.font='800 74px "Bricolage Grotesque"';
-  wrap(ctx,posterLine(n),940).forEach((ln,k)=>ctx.fillText(ln,64,baseline(ctx,346+k*72.5,72.5)));
+  lineRows.forEach((ln,k)=>ctx.fillText(ln,64,baseline(ctx,346+k*72.5,72.5)));
   // cards
-  const {c:cols,w}=posterLayout(n), h=w*1.4, rows=Math.ceil(n/cols);
-  const gridH=rows*h+(rows-1)*RGAP, areaTop=TOP_H+40, areaBot=PH-64-154-40;
+  const areaTop=TOP_H+28, areaBot=PH-BAR_B-BAR_H-12-28;
+  const {c:cols,w}=posterLayout(n,areaBot-areaTop), h=w*1.4, rows=Math.ceil(n/cols);
+  const gridH=rows*h+(rows-1)*RGAP;
   let y=areaTop+Math.max(0,(areaBot-areaTop-gridH)/2);
   const imgs=await Promise.all(picks.map(([c])=>cardImages(c)));
+  // spread cards evenly across rows (e.g. 38 -> 7,7,6,6,6,6) so the last row isn't a few strays
+  const base=Math.floor(n/rows), extra=n%rows;let at=0;
   for(let r=0;r<rows;r++){
-    const row=picks.slice(r*cols,(r+1)*cols), rw=row.length*w+(row.length-1)*GAP;let x=(PW-rw)/2;
-    row.forEach(([c,i],k)=>{drawCard(ctx,c,i,imgs[r*cols+k],x,y,w);x+=w+GAP;});
-    y+=h+RGAP;
+    const len=base+(r<extra?1:0), row=picks.slice(at,at+len), rw=len*w+(len-1)*GAP;let x=(PW-rw)/2;
+    row.forEach(([c,i],k)=>{drawCard(ctx,c,i,imgs[at+k],x,y,w);x+=w+GAP;});
+    at+=len;y+=h+RGAP;
   }
   // call to action bar
-  const bx=PAD, bw=PW-2*PAD, bh=154, by=PH-64-bh;
+  const bx=PAD, bw=PW-2*PAD, bh=BAR_H, by=PH-BAR_B-bh;
   ctx.fillStyle='#F0412F';rr(ctx,bx,by+12,bw,bh,28);ctx.fill();
   ctx.fillStyle='#1A1A1A';rr(ctx,bx,by,bw,bh,28);ctx.fill();
   ctx.font='800 46px "Bricolage Grotesque"';ctx.fillStyle='#FFC928';const tlh=46.9;
-  ctx.fillText('How many have',bx+36,baseline(ctx,by+30,tlh));ctx.fillText('you been to?',bx+36,baseline(ctx,by+30+tlh,tlh));
+  const tt=by+(bh-2*tlh)/2;ctx.fillText('How many have',bx+36,baseline(ctx,tt,tlh));ctx.fillText('you been to?',bx+36,baseline(ctx,tt+tlh,tlh));
   ctx.font='800 38px Inter';const label='Check now →', lw=ctx.measureText(label).width;
   const btw=lw+88, bth=90, btx=bx+bw-36-btw, bty=by+(bh-bth)/2;
   ctx.fillStyle='#FFC928';rr(ctx,btx,bty+6,btw,bth,45);ctx.fill();
